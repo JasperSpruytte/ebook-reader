@@ -9,7 +9,8 @@ export enum StorageKey {
   BROWSER = 'browser',
   FS = 'fs',
   GDRIVE = 'gdrive',
-  ONEDRIVE = 'onedrive'
+  ONEDRIVE = 'onedrive',
+  WEBDAV = 'webdav'
 }
 
 export enum StorageDataType {

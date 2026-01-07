@@ -10,8 +10,8 @@
   import { StorageOAuthManager, storageOAuthTokens } from '$lib/data/storage/storage-oauth-manager';
   import {
     encrypt,
-    isAppDefault,
     type FsHandle,
+    isAppDefault,
     type StorageSourceSaveResult,
     type StorageUnlockAction
   } from '$lib/data/storage/storage-source-manager';
@@ -56,7 +56,8 @@
   let storageSourceEncryptionDisabled = configuredEncryptionDisabled || false;
   let storageSourceTypes = [
     { key: StorageKey.GDRIVE, label: 'GDrive' },
-    { key: StorageKey.ONEDRIVE, label: 'OneDrive' }
+    { key: StorageKey.ONEDRIVE, label: 'OneDrive' },
+    { key: StorageKey.WEBDAV, label: 'WebDAV' }
   ];
 
   $: if (browser && 'showDirectoryPicker' in window) {
@@ -244,9 +245,7 @@
 
   function setInitialPassword(element: HTMLInputElement) {
     if (element && configuredStoredInManager && configuredRemoteData.secret) {
-      const elm = element;
-
-      elm.value = configuredRemoteData.secret;
+      element.value = configuredRemoteData.secret;
     }
   }
 </script>
