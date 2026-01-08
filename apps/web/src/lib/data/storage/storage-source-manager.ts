@@ -57,8 +57,10 @@ export interface StorageSourceSaveResult {
   old?: string;
 }
 
+// TODO is this the right place to keep username?
 export interface StorageUnlockAction extends RemoteContext {
   secret?: string;
+  username?: string;
 }
 
 export function isAppDefault(name: string) {

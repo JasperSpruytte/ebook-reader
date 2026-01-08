@@ -15,9 +15,9 @@
     type StorageSourceSaveResult,
     type StorageUnlockAction
   } from '$lib/data/storage/storage-source-manager';
+  import SettingsEncryptionPassword from '$lib/components/settings/settings-encryption-password.svelte';
   import { StorageKey } from '$lib/data/storage/storage-types';
   import { database, isOnline$ } from '$lib/data/store';
-  import { faTriangleExclamation } from '@fortawesome/free-solid-svg-icons';
   import { createEventDispatcher } from 'svelte';
   import Fa from 'svelte-fa';
 
@@ -39,8 +39,6 @@
 
   let containerElm: HTMLElement;
   let nameElm: HTMLInputElement;
-  let pwElm: HTMLInputElement;
-  let pwConfirmElm: HTMLInputElement;
   let error = '';
   const passwordManagerAvailable = 'PasswordCredential' in window;
   let storageSourceName = configuredName || '';
@@ -49,6 +47,10 @@
   let storageSourceType = configuredType || StorageKey.GDRIVE;
   let storageSourceClientId = configuredRemoteData?.clientId || '';
   let storageSourceClientSecret = configuredRemoteData?.clientSecret || '';
+  let storageSourceUrl = '';
+  let storageSourceUsername = '';
+  let storageSourcePassword = '';
+  let storageSourceEncryptionPassword = '';
   let directoryHandle: FileSystemDirectoryHandle | undefined = configuredFSData?.directoryHandle;
   let handleFsPath = configuredFSData?.fsPath || '';
   let storageSourceStoredInManager =
@@ -63,10 +65,6 @@
   $: if (browser && 'showDirectoryPicker' in window) {
     storageSourceTypes = [...storageSourceTypes, { key: StorageKey.FS, label: 'Filesystem' }];
   }
-
-  $: setInitialPassword(pwElm);
-
-  $: setInitialPassword(pwConfirmElm);
 
   async function selectDirectory() {
     resetCustomValidity();
@@ -111,9 +109,6 @@
             nameElm.setCustomValidity('Please select a different name');
             isValid = false;
           }
-        } else if (elm === pwConfirmElm && pwElm.value !== pwConfirmElm.value) {
-          pwConfirmElm.setCustomValidity('Password does not match');
-          isValid = false;
         }
 
         if (!isValid) {
@@ -138,7 +133,7 @@
             new PasswordCredential({
               id: storageSourceName,
               name: `${storageSourceName} (${storageSourceType})`,
-              password: pwConfirmElm.value
+              password: storageSourceEncryptionPassword
             })
           )
           .catch(({ message }: any) => {
@@ -181,7 +176,7 @@
               clientSecret: storageSourceClientSecret,
               refreshToken: invalidateToken ? '' : storageSourceRefreshToken
             }),
-            pwConfirmElm.value
+            storageSourceEncryptionPassword
           );
         }
       }
@@ -235,18 +230,11 @@
   function resetCustomValidity() {
     error = '';
     nameElm.setCustomValidity('');
-    pwConfirmElm?.setCustomValidity('');
   }
 
   function closeDialog(data?: StorageSourceSaveResult) {
     resolver(data);
     dispatch('close');
-  }
-
-  function setInitialPassword(element: HTMLInputElement) {
-    if (element && configuredStoredInManager && configuredRemoteData.secret) {
-      element.value = configuredRemoteData.secret;
-    }
   }
 </script>
 
@@ -296,6 +284,28 @@
         <Ripple />
       </button>
       <div class="my-4 text-center">{handleFsPath || 'Nothing selected'}</div>
+    {:else if storageSourceType === StorageKey.WEBDAV}
+      <input required type="text" placeholder="WebDAV URL" bind:value={storageSourceUrl} />
+      <input
+        class="mt-4"
+        required
+        type="text"
+        placeholder="WebDAV Username"
+        bind:value={storageSourceUsername}
+      />
+      <input
+        class="mt-4"
+        type="password"
+        placeholder="WebDAV Password"
+        required
+        bind:value={storageSourcePassword}
+      />
+      <SettingsEncryptionPassword
+        bind:password={storageSourceEncryptionPassword}
+        disabled={storageSourceEncryptionDisabled}
+        storedInManager={configuredStoredInManager}
+        initialPassword={configuredStoredInManager ? configuredRemoteData.secret : undefined}
+      />
     {:else}
       <input required type="text" placeholder="Client ID" bind:value={storageSourceClientId} />
       <input
@@ -304,68 +314,12 @@
         placeholder="Client Secret"
         bind:value={storageSourceClientSecret}
       />
-      <input
-        class="mt-4"
-        type="password"
-        placeholder="Password"
-        required={!storageSourceEncryptionDisabled}
+      <SettingsEncryptionPassword
+        bind:password={storageSourceEncryptionPassword}
         disabled={storageSourceEncryptionDisabled}
-        bind:this={pwElm}
+        storedInManager={configuredStoredInManager}
+        initialPassword={configuredStoredInManager ? configuredRemoteData.secret : undefined}
       />
-      <input
-        class="mt-4"
-        type="password"
-        placeholder="Confirm Password"
-        required={!storageSourceEncryptionDisabled}
-        disabled={storageSourceEncryptionDisabled}
-        bind:this={pwConfirmElm}
-      />
-      {#if passwordManagerAvailable}
-        <div class="mt-4">
-          <input
-            id="cbx-store-in-manager"
-            type="checkbox"
-            bind:checked={storageSourceStoredInManager}
-            on:change={() => {
-              if (storageSourceStoredInManager && storageSourceEncryptionDisabled) {
-                storageSourceEncryptionDisabled = false;
-              }
-            }}
-          />
-          <label for="cbx-store-in-manager" class="ml-2 mr-6">Store in Password Manager</label>
-        </div>
-      {/if}
-      <div class="mt-4">
-        <input
-          id="cbx-disable-encryption"
-          type="checkbox"
-          bind:checked={storageSourceEncryptionDisabled}
-          on:change={() => {
-            if (storageSourceEncryptionDisabled) {
-              storageSourceStoredInManager = false;
-              pwElm.value = '';
-              pwConfirmElm.value = '';
-            }
-          }}
-        />
-        <label for="cbx-disable-encryption" class="ml-2 mr-6">Disable Password Encryption</label>
-      </div>
-    {/if}
-    {#if storageSourceStoredInManager || storageSourceEncryptionDisabled}
-      <div class="flex items-center my-4 max-w-xs">
-        <Fa icon={faTriangleExclamation} />
-        <span class="ml-2">
-          Make sure to understand the
-          <a
-            class="text-red-500"
-            href="https://github.com/ttu-ttu/ebook-reader?tab=readme-ov-file#security-considerations"
-            target="_blank"
-          >
-            Implications
-          </a>
-          of your choosen Settings
-        </span>
-      </div>
     {/if}
     {#if error}
       <div class="text-red-500">Error: {error}</div>
