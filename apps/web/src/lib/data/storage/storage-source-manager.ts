@@ -5,9 +5,9 @@
  */
 
 import {
+  internalStorageSourceName,
   StorageKey,
-  StorageSourceDefault,
-  internalStorageSourceName
+  StorageSourceDefault
 } from '$lib/data/storage/storage-types';
 import { fsStorageSource$, gDriveStorageSource$, oneDriveStorageSource$ } from '$lib/data/store';
 
@@ -52,16 +52,24 @@ export interface RemoteContext {
   refreshToken?: string;
 }
 
+export interface WebDavContext {
+  url: string;
+  username: string;
+  password: string;
+}
+
+export type StorageSourceUnencryptedData = FsHandle | RemoteContext | WebDavContext;
+
+export type StorageSourceData = StorageSourceUnencryptedData | ArrayBuffer;
+
 export interface StorageSourceSaveResult {
   new: BooksDbStorageSource;
   old?: string;
 }
 
-// TODO is this the right place to keep username?
-export interface StorageUnlockAction extends RemoteContext {
+export type StorageUnlockAction = StorageSourceUnencryptedData & {
   secret?: string;
-  username?: string;
-}
+};
 
 export function isAppDefault(name: string) {
   return (
@@ -184,8 +192,14 @@ export async function unlockStorageData(
   return unlockResult;
 }
 
-export function isRemoteContext(
-  data: FsHandle | ArrayBuffer | RemoteContext
-): data is RemoteContext {
+export function isFsHandle(data: StorageSourceData): data is FsHandle {
+  return !!(data && 'fsPath' in data && data.fsPath);
+}
+
+export function isRemoteContext(data: StorageSourceData): data is RemoteContext {
   return !!(data && 'clientId' in data && data.clientId);
+}
+
+export function isWebDavContext(data: StorageSourceData): data is WebDavContext {
+  return !!(data && 'url' in data && data.url);
 }

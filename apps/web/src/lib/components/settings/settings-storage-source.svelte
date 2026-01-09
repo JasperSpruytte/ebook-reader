@@ -12,6 +12,11 @@
     encrypt,
     type FsHandle,
     isAppDefault,
+    isFsHandle,
+    isRemoteContext,
+    isWebDavContext,
+    type RemoteContext,
+    type StorageSourceData,
     type StorageSourceSaveResult,
     type StorageUnlockAction
   } from '$lib/data/storage/storage-source-manager';
@@ -19,14 +24,13 @@
   import { StorageKey } from '$lib/data/storage/storage-types';
   import { database, isOnline$ } from '$lib/data/store';
   import { createEventDispatcher } from 'svelte';
-  import Fa from 'svelte-fa';
 
   export let configuredName: string;
   export let configuredIsSyncTarget: boolean;
   export let configuredIsStorageSourceDefault: boolean;
   export let configuredType: StorageKey;
-  export let configuredRemoteData: StorageUnlockAction;
-  export let configuredFSData: FsHandle;
+  export let configuredData: StorageSourceData;
+  export let configuredUnlockAction: StorageUnlockAction | undefined;
   export let configuredStoredInManager: boolean;
   export let configuredEncryptionDisabled: boolean;
   export let resolver: (arg0: StorageSourceSaveResult | undefined) => void;
@@ -34,8 +38,6 @@
   const dispatch = createEventDispatcher<{
     close: void;
   }>();
-
-  const storageSourceRefreshToken = configuredRemoteData?.refreshToken || '';
 
   let containerElm: HTMLElement;
   let nameElm: HTMLInputElement;
@@ -45,14 +47,14 @@
   let storageSourceIsSyncTarget = configuredIsSyncTarget || false;
   let storageSourceIsSourceDefault = configuredIsStorageSourceDefault || false;
   let storageSourceType = configuredType || StorageKey.GDRIVE;
-  let storageSourceClientId = configuredRemoteData?.clientId || '';
-  let storageSourceClientSecret = configuredRemoteData?.clientSecret || '';
+  let storageSourceClientId = '';
+  let storageSourceClientSecret = '';
   let storageSourceUrl = '';
   let storageSourceUsername = '';
   let storageSourcePassword = '';
   let storageSourceEncryptionPassword = '';
-  let directoryHandle: FileSystemDirectoryHandle | undefined = configuredFSData?.directoryHandle;
-  let handleFsPath = configuredFSData?.fsPath || '';
+  let directoryHandle: FileSystemDirectoryHandle | undefined = undefined;
+  let handleFsPath = '';
   let storageSourceStoredInManager =
     (passwordManagerAvailable && configuredStoredInManager) || false;
   let storageSourceEncryptionDisabled = configuredEncryptionDisabled || false;
@@ -64,6 +66,24 @@
 
   $: if (browser && 'showDirectoryPicker' in window) {
     storageSourceTypes = [...storageSourceTypes, { key: StorageKey.FS, label: 'Filesystem' }];
+  }
+
+  $: initializeStorageSourceForm(configuredData);
+
+  function initializeStorageSourceForm(data: StorageSourceData) {
+    if (isFsHandle(data)) {
+      directoryHandle = data.directoryHandle;
+      handleFsPath = data.fsPath;
+    }
+    if (isRemoteContext(data)) {
+      storageSourceClientId = data.clientId;
+      storageSourceClientSecret = data.clientSecret;
+    }
+    if (isWebDavContext(data)) {
+      storageSourceUrl = data.url;
+      storageSourceUsername = data.username;
+      storageSourcePassword = data.password;
+    }
   }
 
   async function selectDirectory() {
@@ -122,7 +142,13 @@
     }
 
     try {
-      let storageSourceData;
+      const configuredRemoteData: RemoteContext | undefined = isRemoteContext(configuredData)
+        ? configuredData
+        : undefined;
+      const configuredFSData: FsHandle | undefined = isFsHandle(configuredData)
+        ? configuredData
+        : undefined;
+      let storageSourceData: StorageSourceData | undefined = undefined;
       let credentialsChanged = false;
       let invalidateToken = false;
 
@@ -147,7 +173,10 @@
         }
 
         storageSourceData = { directoryHandle, fsPath: handleFsPath };
-      } else {
+      } else if (
+        storageSourceType === StorageKey.ONEDRIVE ||
+        storageSourceType === StorageKey.GDRIVE
+      ) {
         credentialsChanged =
           storageSourceClientId !== configuredRemoteData?.clientId ||
           storageSourceClientSecret !== configuredRemoteData?.clientSecret;
@@ -162,25 +191,22 @@
           throw new Error('You need to be online in order to make this change to the credentials');
         }
 
-        if (storageSourceEncryptionDisabled) {
-          storageSourceData = {
-            clientId: storageSourceClientId,
-            clientSecret: storageSourceClientSecret,
-            refreshToken: invalidateToken ? '' : storageSourceRefreshToken
-          };
-        } else {
-          storageSourceData = await encrypt(
-            window,
-            JSON.stringify({
-              clientId: storageSourceClientId,
-              clientSecret: storageSourceClientSecret,
-              refreshToken: invalidateToken ? '' : storageSourceRefreshToken
-            }),
-            storageSourceEncryptionPassword
-          );
-        }
+        storageSourceData = {
+          clientId: storageSourceClientId,
+          clientSecret: storageSourceClientSecret,
+          refreshToken: invalidateToken ? '' : configuredRemoteData?.refreshToken
+        };
+      } else if (storageSourceType === StorageKey.WEBDAV) {
+        storageSourceData = {
+          url: storageSourceUrl,
+          username: storageSourceUsername,
+          password: storageSourcePassword
+        };
       }
-
+      if (storageSourceData === undefined) {
+        throw new Error(`Storage source data was undefined`);
+      }
+      storageSourceData = await handleEncryptionIfNeeded(storageSourceData);
       const toSave: BooksDbStorageSource = {
         name: storageSourceName,
         type: storageSourceType,
@@ -225,6 +251,14 @@
     } catch (err: any) {
       error = err.message;
     }
+  }
+
+  function handleEncryptionIfNeeded(data: StorageSourceData): Promise<StorageSourceData> {
+    if (storageSourceEncryptionDisabled || isFsHandle(data)) {
+      return Promise.resolve(data);
+    }
+
+    return encrypt(window, JSON.stringify(data), storageSourceEncryptionPassword);
   }
 
   function resetCustomValidity() {
@@ -304,7 +338,7 @@
         bind:password={storageSourceEncryptionPassword}
         disabled={storageSourceEncryptionDisabled}
         storedInManager={configuredStoredInManager}
-        initialPassword={configuredStoredInManager ? configuredRemoteData.secret : undefined}
+        initialPassword={configuredStoredInManager ? configuredUnlockAction?.secret : undefined}
       />
     {:else}
       <input required type="text" placeholder="Client ID" bind:value={storageSourceClientId} />
@@ -318,7 +352,7 @@
         bind:password={storageSourceEncryptionPassword}
         disabled={storageSourceEncryptionDisabled}
         storedInManager={configuredStoredInManager}
-        initialPassword={configuredStoredInManager ? configuredRemoteData.secret : undefined}
+        initialPassword={configuredStoredInManager ? configuredUnlockAction?.secret : undefined}
       />
     {/if}
     {#if error}

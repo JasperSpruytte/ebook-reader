@@ -4,7 +4,7 @@
  * All rights reserved.
  */
 
-import type { FsHandle, RemoteContext } from '$lib/data/storage/storage-source-manager';
+import type { StorageSourceData } from '$lib/data/storage/storage-source-manager';
 
 import type { DBSchema } from 'idb';
 import type { ReadingGoal } from '$lib/data/reading-goal';
@@ -59,7 +59,7 @@ interface BooksDbV6BookmarkData {
 interface BooksDbV6StorageSource {
   name: string;
   type: StorageKey;
-  data: FsHandle | ArrayBuffer | RemoteContext;
+  data: StorageSourceData;
   storedInManager: boolean;
   encryptionDisabled: boolean;
   lastSourceModified: number;

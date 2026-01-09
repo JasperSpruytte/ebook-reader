@@ -20,12 +20,13 @@
   import { gDriveRevokeEndpoint } from '$lib/data/env';
   import { StorageOAuthManager, storageOAuthTokens } from '$lib/data/storage/storage-oauth-manager';
   import {
-    isAppDefault,
-    setStorageSourceDefault,
     type FsHandle,
+    isAppDefault,
+    isRemoteContext,
+    setStorageSourceDefault,
+    type StorageSourceData,
     type StorageSourceSaveResult,
     type StorageUnlockAction,
-    type RemoteContext,
     unlockStorageData
   } from '$lib/data/storage/storage-source-manager';
   import { StorageKey } from '$lib/data/storage/storage-types';
@@ -41,7 +42,6 @@
   } from '$lib/data/store';
   import { AutoReplicationType } from '$lib/functions/replication/replication-options';
   import { dummyFn } from '$lib/functions/utils';
-  import Fa from 'svelte-fa';
 
   export let storageSources: BooksDbStorageSource[];
 
@@ -84,8 +84,8 @@
   }
 
   async function modifyStorageSource(storageSource?: BooksDbStorageSource) {
-    let configuredRemoteData: StorageUnlockAction | undefined;
-    let configuredFSData: FsHandle | undefined;
+    let configuredData: StorageSourceData;
+    let configuredUnlockAction: StorageUnlockAction | undefined = undefined;
 
     if (storageSource && storageSource.type !== StorageKey.FS) {
       const unlockResult = await unlockStorageData(
@@ -101,9 +101,11 @@
         return;
       }
 
-      configuredRemoteData = unlockResult;
+      configuredData = unlockResult;
+      console.log('Configured data', configuredData);
+      configuredUnlockAction = unlockResult;
     } else if (storageSource && isFSHandle(storageSource.type, storageSource.data)) {
-      configuredFSData = {
+      configuredData = {
         directoryHandle: storageSource.data.directoryHandle,
         fsPath: storageSource.data.fsPath
       };
@@ -120,8 +122,8 @@
             configuredIsStorageSourceDefault: storageSource
               ? isStorageSourceDefault(storageSource.name, storageSource.type)
               : false,
-            configuredFSData,
-            configuredRemoteData,
+            configuredData,
+            configuredUnlockAction,
             configuredStoredInManager: storageSource?.storedInManager,
             configuredEncryptionDisabled: storageSource?.encryptionDisabled,
             resolver
@@ -152,10 +154,7 @@
     }
   }
 
-  function isFSHandle(
-    type: StorageKey,
-    data: FsHandle | ArrayBuffer | RemoteContext
-  ): data is FsHandle {
+  function isFSHandle(type: StorageKey, data: StorageSourceData): data is FsHandle {
     return data && type === StorageKey.FS;
   }
 
@@ -184,7 +183,10 @@
       return;
     }
 
-    const invalidateToken = storageSource.type === StorageKey.GDRIVE && unlockResult.refreshToken;
+    const invalidateToken =
+      storageSource.type === StorageKey.GDRIVE &&
+      isRemoteContext(unlockResult) &&
+      unlockResult.refreshToken;
 
     if (invalidateToken && !$isOnline$) {
       dialogManager.dialogs$.next([

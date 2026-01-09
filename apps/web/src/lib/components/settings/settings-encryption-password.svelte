@@ -1,6 +1,5 @@
 <script lang="ts">
   import { faTriangleExclamation } from '@fortawesome/free-solid-svg-icons';
-  import Fa from 'svelte-fa';
 
   export let password = '';
   export let initialPassword: string | undefined;
@@ -14,8 +13,9 @@
   let confirmElm: HTMLInputElement;
   let availableInManager = (passwordManagerAvailable && storedInManager) || false;
   function validateMatch(password: string, confirmPassword: string) {
-    if (!confirmPassword) return;
-    console.log('Validating if ' + password + ' is equal to ' + confirmPassword);
+    if (!confirmPassword) {
+      return;
+    }
 
     confirmElm.setCustomValidity(password === confirmPassword ? '' : 'Password does not match');
   }
