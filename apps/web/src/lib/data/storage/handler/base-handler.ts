@@ -6,13 +6,13 @@
 
 import type { BookCardProps } from '$lib/components/book-card/book-card-props';
 import {
-  currentDbVersion,
+  type BooksDbAudioBook,
   type BooksDbBookData,
   type BooksDbBookmarkData,
-  type BooksDbStatistic,
   type BooksDbReadingGoal,
-  type BooksDbAudioBook,
-  type BooksDbSubtitleData
+  type BooksDbStatistic,
+  type BooksDbSubtitleData,
+  currentDbVersion
 } from '$lib/data/database/books-db/versions/books-db';
 import type { Section } from '$lib/data/database/books-db/versions/v4/books-db-v4';
 import { storageRootName } from '$lib/data/env';
@@ -22,19 +22,19 @@ import { exporterVersion } from '$lib/functions/replication/replicator';
 import { throwIfAborted } from '$lib/functions/replication/replication-error';
 import { ReplicationSaveBehavior } from '$lib/functions/replication/replication-options';
 import {
-  replicationProgress$,
   type ReplicationContext,
-  type ReplicationDeleteResult
+  type ReplicationDeleteResult,
+  replicationProgress$
 } from '$lib/functions/replication/replication-progress';
 import pLimit from 'p-limit';
 import {
   BlobReader,
   BlobWriter,
+  type Entry,
   TextReader,
   TextWriter,
   ZipReader,
-  ZipWriter,
-  type Entry
+  ZipWriter
 } from '@zip.js/zip.js';
 
 export enum FilePrefix {
@@ -48,16 +48,25 @@ export interface ExternalFile {
 }
 
 export abstract class BaseStorageHandler {
-  abstract updateSettings(
+  updateSettings(
     window: Window,
     isForBrowser: boolean,
-    saveBehavior: string,
+    saveBehavior: ReplicationSaveBehavior,
     statisticsMergeMode: MergeMode,
     readingGoalsMergeMode: MergeMode,
     cacheStorageData: boolean,
     askForStorageUnlock: boolean,
     storageSourceName: string
-  ): void;
+  ): void {
+    this.window = window;
+    this.isForBrowser = isForBrowser;
+    this.saveBehavior = saveBehavior;
+    this.cacheStorageData = cacheStorageData;
+    this.askForStorageUnlock = askForStorageUnlock;
+    this.statisticsMergeMode = statisticsMergeMode;
+    this.readingGoalsMergeMode = readingGoalsMergeMode;
+    this.storageSourceName = storageSourceName;
+  }
 
   abstract getBookList(): Promise<BookCardProps[]>;
 

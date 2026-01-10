@@ -36,6 +36,9 @@
     "typescript": "5.9.3",
     "typescript-eslint": "8.25.0"
   },
+  "dependencies": {
+    "webdav": "^5.8.0"
+  },
   "lint-staged": {
     "*.{js,cjs,mjs,ts,svelte}": [
       "eslint --fix",

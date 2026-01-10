@@ -15,9 +15,38 @@ import type {
   BooksDbSubtitleData
 } from '$lib/data/database/books-db/versions/books-db';
 import type { BookCardProps } from '$lib/components/book-card/book-card-props';
+import {
+  getUnlockedStorageSourceData,
+  isWebDavContext
+} from '$lib/data/storage/storage-source-manager';
+import { createClient, type WebDAVClient } from 'webdav';
+import { database, webdavStorageSource$ } from '$lib/data/store';
 import type { MergeMode } from '$lib/data/merge-mode';
+import type { ReplicationSaveBehavior } from '$lib/functions/replication/replication-options';
 
 export class WebdavStorageHandler extends BaseStorageHandler {
+  private client: WebDAVClient | undefined;
+
+  private async getClient(): Promise<WebDAVClient> {
+    if (this.client !== undefined) {
+      return this.client;
+    }
+    const storageSource = await getUnlockedStorageSourceData(
+      this.storageSourceName,
+      this.askForStorageUnlock
+    );
+    if (!isWebDavContext(storageSource)) {
+      throw new Error(`${this.storageSourceName} is not a WebDAV storage source`);
+    }
+    console.log('username:', storageSource.username, 'password:', storageSource.password);
+    this.client = createClient(storageSource.url, {
+      username: storageSource.username,
+      password: storageSource.password,
+      withCredentials: true
+    });
+    return this.client;
+  }
+
   areReadingGoalsPresentAndUpToDate(referenceFilename: string | undefined): Promise<boolean> {
     console.log(`Reading goals presented for ${referenceFilename}`);
     return Promise.resolve(false);
@@ -51,8 +80,32 @@ export class WebdavStorageHandler extends BaseStorageHandler {
     return Promise.resolve(undefined as never);
   }
 
-  getBookList(): Promise<BookCardProps[]> {
-    return Promise.resolve([]);
+  async getBookList(): Promise<BookCardProps[]> {
+    database.listLoading$.next(true);
+    const client = await this.getClient();
+    const response = await client.getDirectoryContents('/');
+    const files = Array.isArray(response) ? response : response.data;
+    const result = files
+      .filter((file) => !file.filename.startsWith('.') && this.isEbookFormat(file.filename))
+      .map(async (file, index) => {
+        return {
+          id: index,
+          imagePath: '',
+          title: file.filename.replace(/\.[^/.]+$/, ''),
+          characters: file.size || 0,
+          lastBookModified: new Date(file.lastmod).getTime(),
+          lastBookOpen: 0,
+          progress: 0,
+          lastBookmarkModified: 0,
+          isPlaceholder: false
+        };
+      });
+    return await Promise.all(result);
+  }
+
+  private isEbookFormat(filename: string): boolean {
+    const extensions = ['.epub', '.pdf', '.mobi', '.azw3'];
+    return extensions.some((ext) => filename.toLowerCase().endsWith(ext));
   }
 
   getCover(): Promise<Blob | undefined> {
@@ -161,15 +214,23 @@ export class WebdavStorageHandler extends BaseStorageHandler {
   updateSettings(
     window: Window,
     isForBrowser: boolean,
-    saveBehavior: string,
+    saveBehavior: ReplicationSaveBehavior,
     statisticsMergeMode: MergeMode,
     readingGoalsMergeMode: MergeMode,
     cacheStorageData: boolean,
     askForStorageUnlock: boolean,
     storageSourceName: string
   ): void {
-    console.log(
-      `Reading goals updated for ${window} and ${isForBrowser} and ${saveBehavior} and ${statisticsMergeMode} and ${readingGoalsMergeMode} and ${cacheStorageData} and ${askForStorageUnlock} and ${storageSourceName}`
+    super.updateSettings(
+      window,
+      isForBrowser,
+      saveBehavior,
+      statisticsMergeMode,
+      readingGoalsMergeMode,
+      cacheStorageData,
+      askForStorageUnlock,
+      storageSourceName
     );
+    this.storageSourceName = storageSourceName || webdavStorageSource$.getValue();
   }
 }

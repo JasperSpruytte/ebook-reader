@@ -28,7 +28,8 @@
     fsStorageSource$,
     gDriveStorageSource$,
     isOnline$,
-    oneDriveStorageSource$
+    oneDriveStorageSource$,
+    webdavStorageSource$
   } from '$lib/data/store';
   import { inputAllowDirectory } from '$lib/functions/file-dom/input-allow-directory';
   import { inputFile } from '$lib/functions/file-dom/input-file';
@@ -46,7 +47,6 @@
     faTrash
   } from '@fortawesome/free-solid-svg-icons';
   import { createEventDispatcher } from 'svelte';
-  import Fa from 'svelte-fa';
   import { quintOut } from 'svelte/easing';
   import { scale } from 'svelte/transition';
 
@@ -135,6 +135,15 @@
               label: 'Filesystem',
               key: StorageKey.FS,
               requiresConnectivity: false
+            }
+          ]
+        : []),
+      ...(isStorageSourceAvailable(StorageKey.WEBDAV, $webdavStorageSource$, window)
+        ? [
+            {
+              label: 'WebDAV',
+              key: StorageKey.WEBDAV,
+              requiresConnectivity: true
             }
           ]
         : [])

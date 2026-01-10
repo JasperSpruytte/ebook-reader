@@ -9,7 +9,13 @@ import {
   StorageKey,
   StorageSourceDefault
 } from '$lib/data/storage/storage-types';
-import { fsStorageSource$, gDriveStorageSource$, oneDriveStorageSource$ } from '$lib/data/store';
+import {
+  database,
+  fsStorageSource$,
+  gDriveStorageSource$,
+  oneDriveStorageSource$,
+  webdavStorageSource$
+} from '$lib/data/store';
 
 import type { BooksDbStorageSource } from '$lib/data/database/books-db/versions/books-db';
 import StorageUnlock from '$lib/components/storage-unlock.svelte';
@@ -89,6 +95,9 @@ export function setStorageSourceDefault(name: string, type: StorageKey) {
       break;
     case StorageKey.FS:
       fsStorageSource$.next(name);
+      break;
+    case StorageKey.WEBDAV:
+      webdavStorageSource$.next(name);
       break;
     default:
       break;
@@ -189,6 +198,41 @@ export async function unlockStorageData(
     });
   }
 
+  return unlockResult;
+}
+
+export async function getStorageSourceData(name: string) {
+  const db = await database.db;
+
+  const storageSource = await db.get('storageSource', name);
+
+  if (!storageSource) {
+    throw new Error(`No storage source with name ${name} found`);
+  }
+  return storageSource;
+}
+
+export async function getUnlockedStorageSourceData(
+  name: string,
+  askForStorageUnlock: boolean
+): Promise<StorageUnlockAction> {
+  const storageSource = await getStorageSourceData(name);
+
+  const unlockResult = await unlockStorageData(
+    storageSource,
+    'You are trying to access protected data',
+    askForStorageUnlock
+      ? {
+          action: `Enter the correct password for ${name} and login to your account if required to proceed`,
+          encryptedData: storageSource.data,
+          forwardSecret: true
+        }
+      : undefined
+  );
+
+  if (!unlockResult) {
+    throw new Error(`Unable to unlock required data`);
+  }
   return unlockResult;
 }
 

@@ -16,10 +16,10 @@ import {
 } from '$lib/components/book-reader/book-reading-tracker/book-reading-tracker';
 import { HeatmapDataAggregration } from '$lib/components/statistics/statistics-heatmap/statistics-heatmap';
 import {
-  StatisticsRangeTemplate,
-  StatisticsTab,
   type BookStatistic,
-  StatisticsReadingDataAggregationMode
+  StatisticsRangeTemplate,
+  StatisticsReadingDataAggregationMode,
+  StatisticsTab
 } from '$lib/components/statistics/statistics-types';
 import { BlurMode } from '$lib/data/blur-mode';
 import type { UserFont } from '$lib/data/fonts';
@@ -214,6 +214,8 @@ export const oneDriveStorageSource$ = writableStringLocalStorageSubject()(
 );
 
 export const fsStorageSource$ = writableStringLocalStorageSubject()('fsStorageSource', '');
+
+export const webdavStorageSource$ = writableStringLocalStorageSubject()('webdavStorageSource', '');
 
 export const syncTarget$ = writableStringLocalStorageSubject()('syncTarget', '');
 
@@ -473,7 +475,8 @@ export const booklistSortOptions$ = writableObjectLocalStorageSubject<Record<str
     [StorageKey.BROWSER]: { property: 'lastBookOpen', direction: SortDirection.DESC },
     [StorageKey.GDRIVE]: { property: 'title', direction: SortDirection.ASC },
     [StorageKey.ONEDRIVE]: { property: 'title', direction: SortDirection.ASC },
-    [StorageKey.FS]: { property: 'title', direction: SortDirection.ASC }
+    [StorageKey.FS]: { property: 'title', direction: SortDirection.ASC },
+    [StorageKey.WEBDAV]: { property: 'title', direction: SortDirection.ASC }
   }
 );
 

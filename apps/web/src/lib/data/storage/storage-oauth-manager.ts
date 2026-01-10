@@ -21,12 +21,13 @@ import {
 import { logger } from '$lib/data/logger';
 import {
   encrypt,
+  getStorageSourceData,
   isAppDefault,
-  unlockStorageData,
   type RemoteContext,
-  type StorageUnlockAction
+  type StorageUnlockAction,
+  unlockStorageData
 } from '$lib/data/storage/storage-source-manager';
-import { StorageSourceDefault, StorageKey } from '$lib/data/storage/storage-types';
+import { StorageKey, StorageSourceDefault } from '$lib/data/storage/storage-types';
 import { database } from '$lib/data/store';
 import { convertAuthErrorResponse } from '$lib/functions/replication/error-handler';
 import { isMobile } from '$lib/functions/utils';
@@ -114,14 +115,7 @@ export class StorageOAuthManager {
       };
     } else {
       if (!unlockResult) {
-        const db = await database.db;
-
-        storageSource = await db.get('storageSource', storageSourceName);
-
-        if (!storageSource) {
-          throw new Error(`No storage source with name ${storageSourceName} found`);
-        }
-
+        storageSource = await getStorageSourceData(storageSourceName);
         unlockResult = await unlockStorageData(
           storageSource,
           'You are trying to access protected data',

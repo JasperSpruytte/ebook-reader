@@ -59,6 +59,10 @@ export function isStorageSourceAvailable(
       hasValidEnvironment = !!storageSourceManager && 'showDirectoryPicker' in window;
       break;
 
+    case StorageKey.WEBDAV:
+      hasValidEnvironment = !!storageSourceManager;
+      break;
+
     default:
       break;
   }

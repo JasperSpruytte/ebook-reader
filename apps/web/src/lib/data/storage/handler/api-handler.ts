@@ -17,8 +17,8 @@ import { MergeMode } from '$lib/data/merge-mode';
 import { mergeReadingGoals, readingGoalSortFunction } from '$lib/data/reading-goal';
 import {
   BaseStorageHandler,
-  FilePrefix,
-  type ExternalFile
+  type ExternalFile,
+  FilePrefix
 } from '$lib/data/storage/handler/base-handler';
 import { getStorageHandler } from '$lib/data/storage/storage-handler-factory';
 import { StorageOAuthManager } from '$lib/data/storage/storage-oauth-manager';
@@ -97,13 +97,16 @@ export abstract class ApiStorageHandler extends BaseStorageHandler {
     askForStorageUnlock: boolean,
     storageSourceName: string
   ) {
-    this.window = window;
-    this.isForBrowser = isForBrowser;
-    this.saveBehavior = saveBehavior;
-    this.cacheStorageData = cacheStorageData;
-    this.askForStorageUnlock = askForStorageUnlock;
-    this.statisticsMergeMode = statisticsMergeMode;
-    this.readingGoalsMergeMode = readingGoalsMergeMode;
+    super.updateSettings(
+      window,
+      isForBrowser,
+      saveBehavior,
+      statisticsMergeMode,
+      readingGoalsMergeMode,
+      cacheStorageData,
+      askForStorageUnlock,
+      storageSourceName
+    );
     this.setInternalSettings(storageSourceName);
   }
 
